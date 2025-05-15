@@ -4,9 +4,15 @@ from tkinter import filedialog, messagebox
 import xml.etree.ElementTree as ET
 import os  # Add this import at the top of the file
 from file_loader import load_file  # Import only load_file
-from service_flag_tracker import process_service_flags as check_service_flags, create_service_flag_checkboxes  # Updated function name
-from remote_control_tracker import process_remote_control as check_remote_control, create_remote_control_checkboxes  # Updated import statement
+from service_flag_tracker import process_service_flags, create_service_flag_checkboxes  # Updated function name
+from remote_control_tracker import process_remote_control, create_remote_control_checkboxes  # Updated import statement
 from tkinter import ttk  # Import ttk for Treeview
+import remote_control_common  # Import the module
+from config import selected_pf  # Import selected_pf from config
+
+# 하드코딩된 xlsx 파일 경로
+HARDCODED_XLSX_PATH = "sample/5YFB4MDE1RP156769_0115-0315.xlsx"
+USE_HARDCODED_XLSX = True  # Flag to toggle between hardcoded xlsx and file dialog
 
 # 전역 변수 선언
 data = None  # 원본 데이터
@@ -24,17 +30,35 @@ def enable_buttons():
 # 파일 로드 핸들러 함수
 def handle_load_file():
     global data
-    data, file_name = load_file()
-    if data is not None and file_name is not None:
-        # Standardize column names
-        data.columns = data.columns.str.strip().str.lower()
-        csv_path_label.config(text=f"Loaded file: {file_name}")
-        enable_buttons()  # Enable buttons after successful file load
+    try:
+        if USE_HARDCODED_XLSX:
+            # Load the hardcoded xlsx file
+            data = pd.read_excel(HARDCODED_XLSX_PATH)
+            file_name = os.path.basename(HARDCODED_XLSX_PATH)
+        else:
+            # Use file dialog to select a file
+            file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+            if not file_path:
+                return  # User canceled the file dialog
+            data = pd.read_excel(file_path)
+            file_name = os.path.basename(file_path)
+
+        if data is not None:
+            # Standardize column names
+            data.columns = data.columns.str.strip().str.lower()
+            csv_path_label.config(text=f"Loaded file: {file_name}")
+            enable_buttons()  # Enable buttons after successful file load
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to load file: {e}")
 
 # Function to sort DataFrame by datetime column
 def sort_by_datetime(dataframe):
     dataframe = dataframe.sort_values(by='datetime', ascending=True)  # Sort in ascending order
     return dataframe
+
+# Add a function to get the selected PF value
+def get_selected_pf():
+    return pf_var.get()
 
 # Filtering and result output
 def apply_filter():
@@ -44,6 +68,7 @@ def apply_filter():
 
     # Get the selected URL option index
     selected_index = url_var.get()
+    selected_pf = get_selected_pf()  # Get the selected PF value
 
     try:
         # Common filtering logic for datetime, reqbody, and resbody
@@ -57,10 +82,10 @@ def apply_filter():
 
         # Call specific filtering logic based on the selected index
         if selected_index == 0:  # Service Flag Checker
-            return check_service_flags(filtered_data, service_flag_checkbox_vars, service_flag_checkbox_labels)
+            return process_service_flags(filtered_data, service_flag_checkbox_vars, service_flag_checkbox_labels)
 
         elif selected_index == 1:  # Remote Control Checker
-            return check_remote_control(filtered_data, remote_checkbox_vars, remote_checkbox_labels)
+            return process_remote_control(filtered_data, remote_checkbox_vars, remote_checkbox_labels)
 
         else:
             messagebox.showinfo("Info", "No specific checker selected.")
@@ -188,6 +213,22 @@ def toggle_json_tree_expand_collapse():
 # Rename the toggle button to "Expand/Collapse JSON Tree"
 expand_collapse_button = tk.Button(result_button_frame, text="Expand/Collapse", command=toggle_json_tree_expand_collapse)
 expand_collapse_button.pack(side="left", padx=5, anchor="w")
+
+# Add radio buttons next to the expand button for 15PF and 19PF options
+radio_frame = tk.Frame(result_button_frame)
+radio_frame.pack_forget()  # Remove the radio frame from its current position
+radio_frame.pack(side="top", pady=5, anchor="w")  # Repack the radio frame above the data filter
+
+pf_var = tk.StringVar(value="19PF")  # Default value is 19PF
+
+radio_15pf = tk.Radiobutton(radio_frame, text="15PF", variable=pf_var, value="15PF")
+radio_15pf.pack(side="left", padx=5)
+
+radio_19pf = tk.Radiobutton(radio_frame, text="19PF", variable=pf_var, value="19PF")
+radio_19pf.pack(side="left", padx=5)
+
+radio_19pf_v2 = tk.Radiobutton(radio_frame, text="19PFv2", variable=pf_var, value="19PFv2")
+radio_19pf_v2.pack(side="left", padx=5)
 
 # Disable buttons initially
 disable_buttons()

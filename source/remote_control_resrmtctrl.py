@@ -1,36 +1,7 @@
-from remote_control_rmtctrlcmd import (
+from remote_control_common import (
+    parse_time_information,
     parse_option
 )
-
-def parse_time_information(data):
-    """
-    Parses the Time Information data.
-
-    Args:
-        data (str): The raw data as a hexadecimal string.
-
-    Returns:
-        dict: A dictionary containing the parsed Time Information.
-    """
-    try:
-        if len(data) != 24:  # 12 bytes = 24 hex characters
-            return {"Error": "Invalid Time Information length"}
-
-        # Parse year, month, day, hour, minute, second
-        year = int(data[:4], 16)
-        month = int(data[4:8], 16)
-        day = int(data[8:12], 16)
-        hour = int(data[12:16], 16)
-        minute = int(data[16:20], 16)
-        second = int(data[20:24], 16)
-
-        # Format the time as a human-readable string
-        time_formatted = f"{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}"
-
-        return {"Time": time_formatted}
-
-    except Exception as e:
-        return {"Error": f"Time Information parsing error: {e}"}
 
 def parse_table_version(data):
     """
@@ -195,28 +166,10 @@ def parse_operation_results(data):
         # Parse Center Request Command (7 bytes)
         center_request_command = data[:14]  # 7 bytes = 14 hex chars
         center_request_command_parsed = parse_option(center_request_command)
-        # center_service_category = center_request_command[0:2]
-        # center_command_byte = int(center_request_command[2:4], 16)
-        # center_command_type = (center_command_byte & 0b11110000) >> 4  # Upper 4 bits
-        # center_command_contents = center_command_byte & 0b00001111  # Lower 4 bits
-        # center_indication_target = center_request_command[4:6]
-        # center_parameter_1 = center_request_command[6:8]
-        # center_parameter_2 = center_request_command[8:10]
-        # center_reserve_1 = center_request_command[10:12]
-        # center_reserve_2 = center_request_command[12:14]
 
         # Parse Operation Result Command (7 bytes)
         operation_result_command = data[14:28]  # 7 bytes = 14 hex chars
         operation_result_command_parsed = parse_option(operation_result_command)
-        # result_service_category = operation_result_command[0:2]
-        # result_command_byte = int(operation_result_command[2:4], 16)
-        # result_command_type = (result_command_byte & 0b11110000) >> 4  # Upper 4 bits
-        # result_command_contents = result_command_byte & 0b00001111  # Lower 4 bits
-        # result_indication_target = operation_result_command[4:6]
-        # result_parameter_1 = operation_result_command[6:8]
-        # result_parameter_2 = operation_result_command[8:10]
-        # result_reserve_1 = operation_result_command[10:12]
-        # result_reserve_2 = operation_result_command[12:14]
 
         combined_result = {
             "Center Request Command": center_request_command_parsed,
@@ -225,29 +178,6 @@ def parse_operation_results(data):
 
         return combined_result
 
-        # # Return parsed operation result
-        # return {
-        #     "Center Request Command": {
-        #         "Service Category": center_request_command_parsed.get("Service Category", "N/A"),
-        #         "Command Type": f"{center_command_type:04b}",
-        #         "Command Contents": f"{center_command_contents:04b}",
-        #         "Indication Target": center_indication_target,
-        #         "Parameter 1": center_parameter_1,
-        #         "Parameter 2": center_parameter_2,
-        #         "Reserve 1": center_reserve_1,
-        #         "Reserve 2": center_reserve_2
-        #     },
-        #     "Operation Result Command": {
-        #         "Service Category": result_service_category,
-        #         "Command Type": f"{result_command_type:04b}",
-        #         "Command Contents": f"{result_command_contents:04b}",
-        #         "Indication Target": result_indication_target,
-        #         "Parameter 1": result_parameter_1,
-        #         "Parameter 2": result_parameter_2,
-        #         "Reserve 1": result_reserve_1,
-        #         "Reserve 2": result_reserve_2
-        #     }
-        # }
     except Exception as e:
         return {"Error": f"Parsing error: {e}"}
 

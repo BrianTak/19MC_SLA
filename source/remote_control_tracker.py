@@ -80,12 +80,6 @@ def process_remote_control(filtered_data, checkbox_vars, checkbox_labels):
                 header_data = parse_rmtctrlcmd_header(row['resbody'])
                 body_data = parse_rmtctrlcmd_body(row['resbody'])
 
-                # Combine header and body data
-                combined_data = {
-                    "Header": header_data,
-                    "Body": body_data
-                }
-
                 # Add parsed data to the result
                 result.append({
                     'Datetime': row['datetime'],
