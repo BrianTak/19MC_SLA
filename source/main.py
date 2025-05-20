@@ -1,15 +1,16 @@
 import pandas as pd
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, StringVar
 import xml.etree.ElementTree as ET
 import os  # Add this import at the top of the file
+import numpy as np  # Import numpy as np
 from file_loader import load_file  # Import only load_file
 from service_flag_tracker import process_service_flags, create_service_flag_checkboxes  # Updated function name
 from remote_control_tracker import process_remote_control, create_remote_control_checkboxes  # Updated import statement
 from tkinter import ttk  # Import ttk for Treeview
-import remote_control_common  # Import thfrom config import selected_pf, selected_service_category
 from remote_control_map import SERVICE_TYPE_TABLE
 from remote_control_common import parse_option
+from config import get_selected_pf, set_selected_pf, get_selected_service_category, set_selected_service_category
 
 # 하드코딩된 xlsx 파일 경로
 HARDCODED_XLSX_PATH = "sample/5YFB4MDE1RP156769_0115-0315.xlsx"
@@ -57,10 +58,6 @@ def sort_by_datetime(dataframe):
     dataframe = dataframe.sort_values(by='datetime', ascending=True)  # Sort in ascending order
     return dataframe
 
-# Add a function to get the selected PF value
-def get_selected_pf():
-    return pf_var.get()
-
 # Filtering and result output
 # Modify apply_filter to use selected_service_category from config
 def apply_filter():
@@ -70,9 +67,6 @@ def apply_filter():
 
     # Get the selected URL option index
     selected_index = url_var.get()
-    selected_pf = get_selected_pf()  # Get the selected PF value
-
-    # print(f"Selected Service Category: {selected_service_category}")
 
     # Use selected_service_category from config
     try:
@@ -109,39 +103,6 @@ def apply_filter():
         messagebox.showerror("Error", f"Error occurred during filtering: {e}")
         return None
 
-# Function to display JSON in a tree structure
-def display_json_tree(json_data):
-    # Create a new window for the JSON tree
-    tree_window = tk.Toplevel(root)
-    tree_window.title("JSON Viewer")
-
-    # Create a Treeview widget
-    tree = ttk.Treeview(tree_window)
-    tree.pack(fill="both", expand=True)
-
-    # Recursive function to insert JSON data into the tree
-    def insert_json(parent, key, value):
-        if isinstance(value, dict):
-            node = tree.insert(parent, "end", text=key, open=True)
-            for sub_key, sub_value in value.items():
-                insert_json(node, sub_key, sub_value)
-        elif isinstance(value, list):
-            node = tree.insert(parent, "end", text=key, open=True)
-            for index, item in enumerate(value):
-                insert_json(node, f"[{index}]", item)
-        else:
-            tree.insert(parent, "end", text=key, values=(value,))
-
-    # Add columns to the Treeview
-    tree["columns"] = ("Value",)
-    tree.column("#0", width=300, anchor="w")
-    tree.column("Value", width=300, anchor="w")
-    tree.heading("#0", text="Key")
-    tree.heading("Value", text="Value")
-
-    # Insert the JSON data into the tree
-    insert_json("", "Root", json_data)
-
 # Update parse_resbody_to_table to populate the Treeview
 def parse_resbody_to_table():
     result_df = apply_filter()  # Apply filter and get the result DataFrame
@@ -153,9 +114,9 @@ def parse_resbody_to_table():
     for item in json_tree.get_children():
         json_tree.delete(item)
 
-    # Convert DataFrame to JSON format
+    # Convert DataFrame to JSON format without NaN values
     try:
-        result_json = result_df.to_dict(orient="records")  # Convert DataFrame to a list of dictionaries
+        result_json = result_df.to_dict(orient="records")
 
         # Recursive function to insert JSON data into the Treeview
         def insert_json(parent, key, value):
@@ -171,12 +132,14 @@ def parse_resbody_to_table():
                 json_tree.insert(parent, "end", text=key, values=(value,))
 
         # Insert the JSON data into the Treeview
-        insert_json("", "Root", result_json)
+        insert_json("", "Result", result_json)
     except Exception as e:
         messagebox.showerror("Error", f"Error occurred during JSON conversion: {e}")
 
 # GUI creation
+# Initialize Tkinter root window
 root = tk.Tk()
+
 root.title("Totoya 19MC Server Log Analyzer")
 
 # Main frame for horizontal layout
@@ -231,18 +194,18 @@ expand_collapse_button.pack(side="left", padx=5, anchor="w")
 # Add radio buttons next to the expand button for 15PF and 19PF options
 radio_frame = tk.Frame(result_button_frame)
 radio_frame.pack_forget()  # Remove the radio frame from its current position
-radio_frame.pack(side="top", pady=5, anchor="w")  # Repack the radio frame above the data filter
+radio_frame.pack(side="left", pady=5, anchor="w")  # Repack the radio frame above the data filter
 
-pf_var = tk.StringVar(value="19PF")  # Default value is 19PF
+pf_options = ["15PF", "19PF", "19PFv2"]
 
-radio_15pf = tk.Radiobutton(radio_frame, text="15PF", variable=pf_var, value="15PF")
-radio_15pf.pack(side="left", padx=5)
+# tk.Label(left_frame, text="PF Filter:", font=("Arial", 10), anchor="w").pack(side="top", anchor="w")
+pf_var = tk.IntVar(value=1)  # Default value is the index of the first option
+set_selected_pf(pf_options[pf_var.get()])
 
-radio_19pf = tk.Radiobutton(radio_frame, text="19PF", variable=pf_var, value="19PF")
-radio_19pf.pack(side="left", padx=5)
+for index, option in enumerate(pf_options):
+    tk.Radiobutton(radio_frame, text=option, variable=pf_var, value=index, anchor="w").pack(side="left", anchor="w")
 
-radio_19pf_v2 = tk.Radiobutton(radio_frame, text="19PFv2", variable=pf_var, value="19PFv2")
-radio_19pf_v2.pack(side="left", padx=5)
+pf_var.trace_add("write", lambda *args: (set_selected_pf(pf_options[pf_var.get()]), print(f"selected_pf: {get_selected_pf()}")))
 
 # Disable buttons initially
 disable_buttons()
@@ -318,17 +281,10 @@ if service_category_keys:
 service_category_dropdown = tk.OptionMenu(left_frame, service_category_var, *[f"({key}) {value}" for key, value in SERVICE_TYPE_TABLE.items()])
 service_category_dropdown.pack_forget()  # Initially hidden
 
-# Add a function to update the selected service category
-def update_selected_service_category(*args):
-    global selected_service_category
-    selected_service_category = service_category_var.get()
-    if selected_service_category:
-        selected_service_category = selected_service_category.split(")")[0].strip("(")
-
 # Bind the service category dropdown to update the selected service category
-service_category_var.trace_add("write", update_selected_service_category)
+service_category_var.trace_add("write", lambda *args: (set_selected_service_category(service_category_var.get().split(")")[0].strip("(")), print(f"Selected Service Category Key: {service_category_var.get().split(')')[0].strip('(')}")))
 
-service_category_label = tk.Label(left_frame, text="Service Category:", anchor="w", font=("Arial", 10))
+service_category_label = tk.Label(left_frame, text="Service Category Filter:", anchor="w", font=("Arial", 10))
 service_category_label.pack_forget()  # Initially hidden
 
 # Right frame for result output

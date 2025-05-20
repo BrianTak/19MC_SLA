@@ -1,6 +1,7 @@
-from config import selected_pf  # Import selected_pf from config
+from config import get_selected_pf  # Import selected_pf from config
 
 SERVICE_TYPE_TABLE_19PF = {
+    "00": "N/A",
     "01": "Light system",
     "02": "Door lock・encrypted system",
     "03": "Window system",
@@ -21,7 +22,6 @@ SERVICE_TYPE_TABLE_19PF = {
     "90": "PIN notification system",
     "F2": "Status notification (Screen response)",
     "F0": "Common",
-    "00": "N/A",
     "0E": "Seat arrange",
     "0F": "Digital key registration",
     "A4": "Plug & Charging Setting"
@@ -597,8 +597,6 @@ CANCEL_PERMISSION_STATES_15PF = {
     ),
 }
 
-
-
 VEHICLE_STATE_WHEN_REMOTE_AC_19PF = {
     "30": lambda param: {
         "Header Code": "30",
@@ -896,9 +894,9 @@ RESULT_CODE_TABLE_19PF = {
 STOP_CAUSE_TABLE_19PF = {}
 
 def merge_tables(base_table, table_15pf, table_19pfv2):
-    if selected_pf == "15PF":
+    if get_selected_pf() == "15PF":
         return {**base_table, **table_15pf}
-    elif selected_pf == "19PFv2":
+    elif get_selected_pf() == "19PFv2":
         return {**base_table, **table_19pfv2}
     return base_table
 

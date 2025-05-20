@@ -64,7 +64,7 @@ def parse_rmtctrlcmd_body(resbody):
 
         # Parse the Option count (1 byte)
         option_count = int(resbody[34:36], 16)  # Start parsing from the 34th byte
-        parsed_option = []
+        option_result = []
 
         # Loop through each option
         offset = 36  # Start parsing options from the 36th byte
@@ -72,14 +72,18 @@ def parse_rmtctrlcmd_body(resbody):
             if len(resbody) < offset + 14:  # Each option is 14 characters (7 bytes)
                 return {"Error": "Body data too short"}
 
-            parsed_option.append(parse_option(resbody[offset:offset + 14]))
-
-            # Move to the next option
-            offset += 14
+            parsed_option = parse_option(resbody[offset:offset + 14])
+            if "Filtered" in parsed_option:
+                return {"Filtered": "service category"}
+            else:
+                # If the option is not filtered by service category, add it to the result
+                option_result.append(parsed_option)
+                # Move to the next option
+                offset += 14
 
         return {
             "Option Count": option_count,
-            "Option": parsed_option
+            "Option": option_result
         }
     except Exception as e:
         return {"Error": f"Body parsing error: {e}"}

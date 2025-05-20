@@ -12,7 +12,7 @@ CHECKBOX_LABELS = ["Telematics", "RSFlag", "RmtCtrl", "SVT", "VPPlus", "VP", "Al
 
 def process_service_flags(filtered_data, checkbox_vars, checkbox_labels):
     """
-    Processes the filtered data for service flag checking.
+    Processes the filtered data for service flag checking, grouping by date and combining checkbox selections.
 
     Args:
         filtered_data (pd.DataFrame): The filtered DataFrame.
@@ -30,6 +30,7 @@ def process_service_flags(filtered_data, checkbox_vars, checkbox_labels):
         filtered_data['url'].isin([SERVICE_FLAG_URL, RSCDLCHK_URL])
     ]
 
+    filtered_data = filtered_data.copy()  # Avoid SettingWithCopyWarning
     filtered_data.columns = filtered_data.columns.str.strip().str.lower()
     filtered_data['url'] = filtered_data['url'].str.strip().str.lower()
 
@@ -51,22 +52,31 @@ def process_service_flags(filtered_data, checkbox_vars, checkbox_labels):
 
                 if srv_type in selected_checkboxes:
                     result.append({
-                        'Datetime': row['datetime'],
+                        'Datetime': row['datetime'],  # Group by date
                         'URL': url_name,
                         'Source': source,
-                        'Type': srv_type,
-                        'Result': srv_result
+                        'Result': {srv_type: srv_result}
                     })
         except ET.ParseError as e:
             result.append({
                 'Datetime': row['datetime'],
                 'URL': 'ParseError',
                 'Source': source if 'source' in locals() else 'Unknown',
-                'Type': 'ParseError',
                 'Result': str(e)
             })
 
-    return pd.DataFrame(result)
+    # Convert to DataFrame and group by date
+    result_df = pd.DataFrame(result)
+    if not result_df.empty:
+        grouped = result_df.groupby('Datetime').agg({
+            'URL': 'first',  # Keep the first URL for simplicity
+            'Source': 'first',  # Keep the first source for simplicity
+            'Result': lambda x: {k: v for d in x for k, v in d.items() if isinstance(d, dict)},
+        }).reset_index()
+
+        return grouped
+
+    return pd.DataFrame()
 
 def create_service_flag_checkboxes(parent_frame):
     """

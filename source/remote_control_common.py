@@ -1,3 +1,5 @@
+from config import get_selected_service_category
+
 from remote_control_map import (
     SERVICE_TYPE_TABLE,
     COMMAND_TYPE_TABLE,
@@ -51,6 +53,16 @@ def parse_option(option_data):
     service_type_byte = option_data[0:2]  # 1 byte (2 hex characters)
     service_type = SERVICE_TYPE_TABLE.get(service_type_byte, "Unknown")
 
+    if get_selected_service_category() == "00":
+        print("Log: get_selected_service_category is 00")
+    elif service_type_byte != get_selected_service_category():
+        print(f"Log: Filtering out service category. service_type_byte: {service_type_byte}, selected_category: {get_selected_service_category()}")
+        return {"Filtered": "service category"}
+
+    if get_selected_service_category() != "00":
+        if get_selected_service_category() != service_type_byte:
+            return {"Filtered": "service category"}
+
     command_byte = option_data[2:4]  # 1 byte (2 hex characters)
 
     # Extract Request/Response bit and Interpret Request/Response
@@ -83,7 +95,7 @@ def parse_option(option_data):
 
     # Interpret based on command type
     return {
-        "Service Type": service_type,
+        "Service Type": f"({service_type_byte}): {service_type}",
         "Req/Res": req_res,
         "Command Type": command_type,
         "Command Contents": command_content,

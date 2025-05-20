@@ -1,4 +1,4 @@
-from config import selected_pf  # Import selected_pf from config
+from config import get_selected_pf  # Import selected_pf from config
 
 from remote_control_common import (
     parse_time_information,
@@ -99,6 +99,9 @@ def parse_operation_results_19PF(data):
         operation_result_command = data[14:28]  # 7 bytes = 14 hex chars
         operation_result_command_parsed = parse_option(operation_result_command)
 
+        if "Filtered" in center_request_command_parsed or "Filtered" in operation_result_command_parsed:
+            return {"Filtered": "service category"}
+
         combined_result = {
             "Center Request Command": center_request_command_parsed,
             "Operation Result Command": operation_result_command_parsed
@@ -193,7 +196,7 @@ def parse_resrmtctrl_body(reqbody):
         offset = 0
         while offset < len(body_info):
             header_code = body_info[offset:offset + 2].upper()  # Read the header code (1 byte) and convert to uppercase
-            offset += 2
+            offset += 2  # Skip the header code
 
             if header_code == "F0":  # Table Version
                 data_length = 1  # Table Version is 1 bytes
@@ -223,37 +226,45 @@ def parse_resrmtctrl_body(reqbody):
                 offset += data_length * 2
 
             elif header_code in ["A0"]:
-                if selected_pf not in ["15PF"]:
-                    continue
-                data_length = 2  # Cancel permission state is 2 bytes
-                cancel_permission_data = body_info[offset:offset + data_length * 2]
-                cancel_permission_states_result.setdefault("Cancel Permission States", []).append(
-                        CANCEL_PERMISSION_STATES.get(header_code, lambda _: "Unknown")(cancel_permission_data)
-                    )
-                offset += data_length * 2
-
+                if get_selected_pf() in ["15PF"]:
+                    data_length = 2  # Cancel permission state is 2 bytes
+                    cancel_permission_data = body_info[offset:offset + data_length * 2]
+                    cancel_permission_states_result.setdefault("Cancel Permission States", []).append(
+                            CANCEL_PERMISSION_STATES.get(header_code, lambda _: "Unknown")(cancel_permission_data)
+                        )
+                    offset += data_length * 2
+                else:
+                    print(f"[DEBUG] Unknown header code: {header_code}, selected_pf: {get_selected_pf()}")
+                    break
 
             elif header_code in ["C0", "C1", "C2", "C4", "C5", "EF"]:  # Operation Results
-                if selected_pf not in ["15PF"]:
-                    continue
-                else:
+                if get_selected_pf() in ["15PF"]:
                     data_length = 6
                     operation_data = body_info[offset:offset + data_length * 2]
-                    operation_result.setdefault("Operation Results", []).append(
-                        parse_operation_results_15PF(header_code, operation_data)
-                    )
-                    offset += data_length * 2
+                    parsed_result = parse_operation_results_15PF(operation_data)
+                    if "Filtered" in parsed_result:
+                        return {"Filtered": "service category"}
+                    else:
+                        operation_result.setdefault("Operation Results", []).append(parsed_result)
+                        offset += data_length * 2
+                else:
+                    print(f"[DEBUG] Unknown header code: {header_code}, selected_pf: {get_selected_pf()}")
+                    break
 
             elif header_code in ["D1", "D2", "D3", "D4", "D5", "D6", "D7"]:  # Operation Results
-                if selected_pf in ["19PF", "19PFv2"]:
-                    continue
-                else:
+                if get_selected_pf() in ["19PF", "19PFv2"]:
                     data_length = 14
                     operation_data = body_info[offset:offset + data_length * 2]
-                    operation_result.setdefault("Operation Results", []).append(
-                        parse_operation_results_19PF(operation_data)
-                    )
-                    offset += data_length * 2
+                    parsed_result = parse_operation_results_19PF(operation_data)
+                    if "Filtered" in parsed_result:
+                        return {"Filtered": "service category"}
+                    else:
+                        operation_result.setdefault("Operation Results", []).append(parsed_result)
+                        offset += data_length * 2
+                else:
+                    print(f"[DEBUG] Unknown header code: {header_code}, selected_pf: {get_selected_pf()}")
+                    break
+
 
             elif "30" <= header_code <= "47":  # Header codes in the range 30 to 47
                 data_length = 1  # Default data length for these header codes
@@ -271,7 +282,7 @@ def parse_resrmtctrl_body(reqbody):
                 offset += data_length * 2
 
             else:
-                print(f"[DEBUG] Unknown header code: {header_code}. Skipping.")
+                print(f"[DEBUG] Unknown header code: {header_code}. Skipping. Current offset: {offset}")
                 break
 
         # Return parsed body fields
