@@ -39,16 +39,17 @@ def parse_time_information(data):
     except Exception as e:
         return {"Error": f"Time Information parsing error: {e}"}
 
-def merge_result_code_tables(service_type_byte, table):
-    base_table = table.get("00", {})
-    service_table = table.get(service_type_byte, {})
-    merged_table = {**base_table, **service_table}  # Merge dictionaries
-    return merged_table
+def merge_result_code_tables(service_type_byte):
+    service_type_description = SERVICE_TYPE_TABLE.get(service_type_byte, "")
+    if "air con" in service_type_description.lower():
+        service_type_byte = "37"
+
+    return {**RESULT_CODE_TABLE.get("00", {}), **RESULT_CODE_TABLE.get(service_type_byte, {})}
 
 def parse_option(option_data):
     # Parse fields for each option
     service_type_byte = option_data[0:2]  # 1 byte (2 hex characters)
-    service_type = SERVICE_TYPE_TABLE.get(service_type_byte, "N/A")
+    service_type = SERVICE_TYPE_TABLE.get(service_type_byte, "Unknown")
 
     command_byte = option_data[2:4]  # 1 byte (2 hex characters)
 
@@ -58,11 +59,11 @@ def parse_option(option_data):
 
     # Extract Command Type bit (4-6 bits) and Interpret Command Type
     command_type_bit = (int(command_byte, 16) & 0b01110000) >> 4  # Extract 4-6 bits (Mode)
-    command_type = COMMAND_TYPE_TABLE.get(req_res, {}).get(command_type_bit, "N/A")
+    command_type = COMMAND_TYPE_TABLE.get(req_res, {}).get(command_type_bit, "Unknown")
 
     # Extract Command Contents (0-3 bits) and Interpret Command Contents
     command_contents_bit = int(command_byte, 16) & 0b00001111  # Extract 0-3 bits (Command type)
-    command_content = COMMAND_CONTENT_TABLE.get(service_type_byte, {}).get(command_contents_bit, "N/A")
+    command_content = COMMAND_CONTENT_TABLE.get(service_type_byte, lambda _: "Unknown")(command_contents_bit)
 
     indication_target_byte = option_data[4:6]  # 1 byte (2 hex characters)
     indication_target = INDICATOR_TABLE.get(service_type_byte, lambda _: "Unknown")(indication_target_byte)

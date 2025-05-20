@@ -8,7 +8,7 @@ SERVICE_FLAG_URL = "http://dcmservice-provisioning-service.local/mc/telematics/s
 RSCDLCHK_URL = "http://dcmservice-provisioning-service.local/mc/telematics/rscdlchk/"
 
 # Checkbox Labels
-CHECKBOX_LABELS = ["Telematics", "RSFlag", "RmtCtrl", "SVT"]
+CHECKBOX_LABELS = ["Telematics", "RSFlag", "RmtCtrl", "SVT", "VPPlus", "VP", "Alarm", "RmtImmobi", "RmtConf", "Dormant"]
 
 def process_service_flags(filtered_data, checkbox_vars, checkbox_labels):
     """
@@ -70,7 +70,7 @@ def process_service_flags(filtered_data, checkbox_vars, checkbox_labels):
 
 def create_service_flag_checkboxes(parent_frame):
     """
-    Creates checkboxes for service flag options.
+    Creates checkboxes for service flag options, with Telematics and RSFlag checked by default.
 
     Args:
         parent_frame (tk.Frame): The parent frame where the checkboxes will be added.
@@ -79,7 +79,7 @@ def create_service_flag_checkboxes(parent_frame):
         tuple: (checkbox_vars, checkbox_labels, checkbox_frame, checkboxes)
     """
     checkbox_frame = tk.Frame(parent_frame)
-    checkbox_vars = [tk.BooleanVar() for _ in CHECKBOX_LABELS]
+    checkbox_vars = [tk.BooleanVar(value=(label in ["Telematics", "RSFlag"])) for label in CHECKBOX_LABELS]
     checkboxes = []
 
     for i, label in enumerate(CHECKBOX_LABELS):

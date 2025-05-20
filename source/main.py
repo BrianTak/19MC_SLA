@@ -7,8 +7,9 @@ from file_loader import load_file  # Import only load_file
 from service_flag_tracker import process_service_flags, create_service_flag_checkboxes  # Updated function name
 from remote_control_tracker import process_remote_control, create_remote_control_checkboxes  # Updated import statement
 from tkinter import ttk  # Import ttk for Treeview
-import remote_control_common  # Import the module
-from config import selected_pf  # Import selected_pf from config
+import remote_control_common  # Import thfrom config import selected_pf, selected_service_category
+from remote_control_map import SERVICE_TYPE_TABLE
+from remote_control_common import parse_option
 
 # 하드코딩된 xlsx 파일 경로
 HARDCODED_XLSX_PATH = "sample/5YFB4MDE1RP156769_0115-0315.xlsx"
@@ -61,6 +62,7 @@ def get_selected_pf():
     return pf_var.get()
 
 # Filtering and result output
+# Modify apply_filter to use selected_service_category from config
 def apply_filter():
     filter_date = date_entry.get()
     filter_reqbody = reqbody_entry.get()
@@ -70,6 +72,9 @@ def apply_filter():
     selected_index = url_var.get()
     selected_pf = get_selected_pf()  # Get the selected PF value
 
+    # print(f"Selected Service Category: {selected_service_category}")
+
+    # Use selected_service_category from config
     try:
         # Common filtering logic for datetime, reqbody, and resbody
         filtered_data = data[
@@ -80,11 +85,20 @@ def apply_filter():
         filtered_data.columns = filtered_data.columns.str.strip().str.lower()
         filtered_data = sort_by_datetime(filtered_data)
 
+        # Filter data based on selected_service_category and parse_option
+        # def filter_by_service_category(row):
+        #     option_data = row['reqbody'][:14]  # Assuming the first 14 characters are the option data
+        #     parsed_option = parse_option(option_data)
+        #     return parsed_option.get("Service Type") == SERVICE_TYPE_TABLE.get(str(selected_service_category), "Unknown")
+
+        # filtered_data = filtered_data[filtered_data.apply(filter_by_service_category, axis=1)]
+
         # Call specific filtering logic based on the selected index
         if selected_index == 0:  # Service Flag Checker
             return process_service_flags(filtered_data, service_flag_checkbox_vars, service_flag_checkbox_labels)
 
         elif selected_index == 1:  # Remote Control Checker
+            # Pass the selected Service Category to process_remote_control
             return process_remote_control(filtered_data, remote_checkbox_vars, remote_checkbox_labels)
 
         else:
@@ -167,7 +181,7 @@ root.title("Totoya 19MC Server Log Analyzer")
 
 # Main frame for horizontal layout
 main_frame = tk.Frame(root)
-main_frame.pack(pady=10, padx=10)
+main_frame.pack(pady=10, padx=10, anchor="nw")  # Anchor to top-left
 
 # Top frame for CSV and result buttons
 top_frame = tk.Frame(main_frame)
@@ -235,7 +249,7 @@ disable_buttons()
 
 # Left frame for buttons and filters
 left_frame = tk.Frame(main_frame)
-left_frame.pack(side="left", padx=10, anchor="n")  # Align the frame to the top
+left_frame.pack(side="left", padx=10, anchor="nw")  # Anchor to top-left
 
 # Filter input fields
 tk.Label(left_frame, text="Date Filter (datetime):", font=("Arial", 10), anchor="w").pack(side="top", anchor="w")
@@ -289,9 +303,42 @@ for cb in remote_checkboxes:
     cb.pack(side="top", anchor="w")  # Initially hide the checkboxes
     cb.pack_forget()
 
+# Add a dropdown for Service Category
+service_category_var = tk.StringVar()
+
+# Extract keys and values from SERVICE_TYPE_TABLE for the dropdown options
+service_category_keys = list(SERVICE_TYPE_TABLE.keys())
+service_category_values = list(SERVICE_TYPE_TABLE.values())
+
+# Set the default value of service_category_var to the first key-value pair in SERVICE_TYPE_TABLE
+if service_category_keys:
+    service_category_var.set(f"({service_category_keys[0]}) {service_category_values[0]}")
+
+# Update the dropdown to use the extracted keys and values
+service_category_dropdown = tk.OptionMenu(left_frame, service_category_var, *[f"({key}) {value}" for key, value in SERVICE_TYPE_TABLE.items()])
+service_category_dropdown.pack_forget()  # Initially hidden
+
+# Add a function to update the selected service category
+def update_selected_service_category(*args):
+    global selected_service_category
+    selected_service_category = service_category_var.get()
+    if selected_service_category:
+        selected_service_category = selected_service_category.split(")")[0].strip("(")
+
+# Bind the service category dropdown to update the selected service category
+service_category_var.trace_add("write", update_selected_service_category)
+
+service_category_label = tk.Label(left_frame, text="Service Category:", anchor="w", font=("Arial", 10))
+service_category_label.pack_forget()  # Initially hidden
+
 # Right frame for result output
 right_frame = tk.Frame(main_frame)
-right_frame.pack(side="right", padx=10)
+# right_frame.config(highlightbackground="black", highlightthickness=1)
+right_frame.pack(side="right", padx=10, fill="both", expand="true", anchor="nw")  # Anchor to top-left
+
+# Update all child frames to fill parent and be responsive
+for child in right_frame.winfo_children():
+    child.pack(anchor="nw")  # Anchor to top-left
 
 # Result output in the right frame
 result_label = tk.Label(right_frame, text="Console:", font=("Arial", 10, "bold"))
@@ -299,7 +346,7 @@ result_label.pack(anchor="nw")
 
 # Repack the result_text widget and scrollbars into a dedicated frame
 result_frame = tk.Frame(right_frame)
-result_frame.pack(fill="both", expand=True)
+result_frame.pack(fill="both", expand="true", anchor="nw")  # Anchor to top-left
 
 # Replace result_text with a JSON viewer using Treeview
 # Remove the result_text widget and its scrollbars
@@ -320,14 +367,18 @@ result_frame.grid_rowconfigure(0, weight=1)
 result_frame.grid_columnconfigure(0, weight=1)
 
 # Increase the size of the result frame by 30%
-result_frame.config(width=int(result_frame.winfo_width() * 1.5), height=int(result_frame.winfo_height() * 1.5))
+root.update_idletasks()  # Ensure the window is fully rendered before resizing
+result_frame.config(width=int(root.winfo_width() * 0.7), height=int(root.winfo_height() * 0.7))
 
 # Add columns to the Treeview
 json_tree["columns"] = ("Value",)
-json_tree.column("#0", width=300, anchor="w")
-json_tree.column("Value", width=300, anchor="w")
-json_tree.heading("#0", text="Key")
-json_tree.heading("Value", text="Value")
+json_tree.column("#0", minwidth=150, width=500, stretch=True, anchor="w")  # Adjust column width and allow stretching
+json_tree.column("Value", minwidth=150, width=500, stretch=True, anchor="w")  # Adjust column width and allow stretching
+json_tree.heading("#0", text="Key", anchor="w")  # Align heading to the left
+json_tree.heading("Value", text="Value", anchor="w")  # Align heading to the left
+
+# Set the height of the json_tree to 150
+json_tree.config(height=30)
 
 # Define update_visibility after result_text is defined
 def update_visibility(*args):
@@ -347,6 +398,8 @@ def update_visibility(*args):
         remote_control_label.pack_forget()  # Hide Remote Control label
         for cb in remote_checkboxes:
             cb.pack_forget()  # Hide remote control checkboxes
+        service_category_label.pack_forget()  # Hide Service Category label
+        service_category_dropdown.pack_forget()  # Hide Service Category dropdown
     elif url_var.get() == 1:  # "Remote Control Checker" is selected
         reqbody_label.pack_forget()
         reqbody_entry.pack_forget()
@@ -359,11 +412,22 @@ def update_visibility(*args):
         remote_control_label.pack(anchor="w")  # Show Remote Control label
         for cb in remote_checkboxes:
             cb.pack(anchor="w")  # Show remote control checkboxes
+        service_category_label.pack(anchor="w")  # Show Service Category label
+        service_category_dropdown.pack(anchor="w")  # Show Service Category dropdown
     else:  # Other options are selected
         reqbody_label.pack(anchor="w")
         reqbody_entry.pack(pady=5, anchor="w")
         resbody_label.pack(anchor="w")
         resbody_entry.pack(pady=5, anchor="w")
+        service_flag_label.pack_forget()  # Hide Service Flag label
+        service_flag_checkbox_frame.pack_forget()
+        for cb in service_flag_checkboxes:
+            cb.pack_forget()  # Hide service flag checkboxes
+        remote_control_label.pack_forget()  # Hide Remote Control label
+        for cb in remote_checkboxes:
+            cb.pack_forget()  # Hide remote control checkboxes
+        service_category_label.pack_forget()  # Hide Service Category label
+        service_category_dropdown.pack_forget()  # Hide Service Category dropdown
         service_flag_label.pack_forget()  # Hide Service Flag label
         service_flag_checkbox_frame.pack_forget()
         for cb in service_flag_checkboxes:
