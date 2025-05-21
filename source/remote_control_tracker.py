@@ -11,85 +11,65 @@ from remote_control_rmtctrlcmd import (
     parse_rmtctrlcmd_body
 )
 
-REMOTE_CONTROL_CMD_URL = "http://dcmservice-remocon-service.local/remoteservices/rmtctrlcmd/"
-REMOTE_CONTROL_RESP_URL = "http://dcmservice-remocon-service.local/mc/remoteservices/resrmtctrl/"
+from config import (
+    REMOTE_CONTROL_CMD_URL,
+    REMOTE_CONTROL_RESP_URL,
+    get_selected_service_category
+)
 
-URL_NAME_MAPPING = {
-    REMOTE_CONTROL_CMD_URL: "rmtctrlcmd",
-    REMOTE_CONTROL_RESP_URL: "resrmtctrl"
-}
+from database import (
+    get_filtered_data
+)
 
-def create_remote_control_checkboxes(parent_frame):
+def should_skip_entry(service_type, service_category):
     """
-    Creates checkboxes for remote control options.
+    Determines whether an entry should be skipped based on the selected type and service category.
 
     Args:
-        parent_frame: The parent frame where the checkboxes will be added.
+        selected_type (str): The type to check against.
+        service_category (str): The service category to compare.
 
     Returns:
-        tuple: A tuple containing the checkbox variables and labels.
+        bool: True if the entry should be skipped, False otherwise.
     """
-    checkbox_vars = []
-    checkbox_labels = ["rmtctrlcmd", "resrmtctrl"]
-    checkboxes = []
+    return service_type != service_category and service_category != "00"
 
-    for label in checkbox_labels:
-        var = tk.BooleanVar(value=False)
-        checkbox_vars.append(var)
-        checkbox = tk.Checkbutton(parent_frame, text=label, variable=var)
-        checkboxes.append(checkbox)
-        checkbox.pack(anchor="w")
-
-    return checkbox_vars, checkbox_labels, checkboxes
-
-def process_remote_control(filtered_data, checkbox_vars, checkbox_labels):
+def process_remote_control():
     """
     Checks remote control commands in the filtered data for two specific URLs and returns the results.
-
-    Args:
-        filtered_data (pd.DataFrame): The filtered DataFrame containing the data to check.
-        checkbox_vars (list): List of checkbox variables.
-        checkbox_labels (list): List of checkbox labels.
 
     Returns:
         pd.DataFrame: A DataFrame containing the results of the remote control check.
     """
-    # Determine selected checkboxes
-    selected_urls = []
-    if any(var.get() for var, label in zip(checkbox_vars, checkbox_labels) if label == "rmtctrlcmd"):
-        selected_urls.append(REMOTE_CONTROL_CMD_URL)
-    if any(var.get() for var, label in zip(checkbox_vars, checkbox_labels) if label == "resrmtctrl"):
-        selected_urls.append(REMOTE_CONTROL_RESP_URL)
-
-    # If no specific URLs are selected, include all
-    if not selected_urls:
-        selected_urls = [REMOTE_CONTROL_CMD_URL, REMOTE_CONTROL_RESP_URL]
-
-    # Filter data based on selected URLs
-    if selected_urls:
-        filtered_data = filtered_data[filtered_data['url'].isin(selected_urls)]
-
 
     result = []
+
     print("Starting remote control check.")
-    print(f"Filtered data:\n{filtered_data}")
+    print(f"Filtered data:\n{get_filtered_data()}")
 
-    for index, row in filtered_data.iterrows():
-        urlname = URL_NAME_MAPPING.get(row['url'], "unknown_service")
-
+    for index, row in get_filtered_data().iterrows():
         if row['url'] == REMOTE_CONTROL_CMD_URL and 'resbody' in row and pd.notna(row['resbody']):
             # Parse header and body data
             header_data = parse_rmtctrlcmd_header(row['resbody'])
             body_data = parse_rmtctrlcmd_body(row['resbody'])
 
-            if "Filtered" in body_data:
-                print(f"[DEBUG] Filtered by: {body_data['Filtered']}")
-                continue  # Skip this entry if filtered by service category
+            # Iterate through options in body_data
+            options = body_data.get("Option", [])
+            skip_entry = True  # Initialize as True
+            for option in options:
+                service_type = option.get("Service Type", "N/A").split(":")[0]
+                service_category = get_selected_service_category()
+                if not should_skip_entry(service_type, service_category):
+                    skip_entry = False  # If any option should not be skipped, set skip_entry to False
+                    break
 
-            # Add parsed data to the result
+            if skip_entry:
+                # print(f"[DEBUG] Skipping entry with Service Type: {service_type} != selected category: {service_category}")
+                continue
+
             result.append({
                 'Datetime': row['datetime'],
-                'URL': urlname,
+                'URL': REMOTE_CONTROL_CMD_URL,
                 'Source': 'resbody',
                 "Protocol Version": header_data.get("Protocol Version", "N/A"),
                 "Message ID": header_data.get("Message ID", "N/A"),
@@ -104,14 +84,24 @@ def process_remote_control(filtered_data, checkbox_vars, checkbox_labels):
             header_data = parse_resrmtctrl_header(row['reqbody'])
             body_data = parse_resrmtctrl_body(row['reqbody'])
 
-            if "Filtered" in body_data:
-                print(f"[DEBUG] Filtered by: {body_data['Filtered']}")
-                continue  # Skip this entry if filtered by service category
+            skip_entry = True  # Initialize as True
+            options = body_data.get("Operation Results", [])
+            for option in options:
+                service_type_1 = option.get("Center Request Command", {}).get("Service Type", "N/A").split(":")[0]
+                service_type_2 = option.get("Operation Result Command", {}).get("Service Type", "N/A").split(":")[0]
+                service_category = get_selected_service_category()
+                if not should_skip_entry(service_type_1, service_category) or not should_skip_entry(service_type_2, service_category):
+                    skip_entry = False  # If any command should not be skipped, set skip_entry to False
+                    break
+
+            if skip_entry:
+                # print(f"[DEBUG] Skipping entry with Service Type 1: {service_type_1} or Service Type 2: {service_type_2} != selected category: {service_category}")
+                continue
 
             # Add parsed data to the result
             result.append({
                 'Datetime': row['datetime'],
-                'URL': urlname,
+                'URL': REMOTE_CONTROL_RESP_URL,
                 'Source': 'reqbody',
                 'ReqFilename': row.get('reqfilename', 'N/A'),  # Add reqfilename field
                 'Status': header_data.get('Status', 'N/A'),

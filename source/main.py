@@ -5,17 +5,32 @@ import xml.etree.ElementTree as ET
 import os  # Add this import at the top of the file
 import numpy as np  # Import numpy as np
 from file_loader import load_file  # Import only load_file
-from service_flag_tracker import process_service_flags, create_service_flag_checkboxes  # Updated function name
-from remote_control_tracker import process_remote_control, create_remote_control_checkboxes  # Updated import statement
+from service_flag_tracker import process_service_flags  # Updated function name
+from remote_control_tracker import process_remote_control  # Updated import statement
 from tkinter import ttk  # Import ttk for Treeview
 from remote_control_map import SERVICE_TYPE_TABLE
 from remote_control_common import parse_option
 from config import (
-    get_selected_pf, set_selected_pf,
-    get_selected_service_category, set_selected_service_category,
-    get_original_data, set_original_data,
-    get_filtered_data, set_filtered_data, clear_filtered_data,
-    init_filtered_data, set_filtered_data_by_date
+    SERVICE_FLAG_URL,
+    RSCDLCHK_URL,
+    REMOTE_CONTROL_CMD_URL,
+    REMOTE_CONTROL_RESP_URL,
+    CHECKBOX_LABELS,
+    get_selected_pf,
+    set_selected_pf,
+    set_selected_service_category,
+    set_selected_service_flags,
+)
+from database import (
+    get_original_data,
+    set_original_data,
+    get_filtered_data,
+    set_filtered_data,
+    init_filtered_data,
+    set_filtered_data_by_date,
+    set_filtered_data_by_urls,
+    set_filtered_data_by_reqbody_str,
+    set_filtered_data_by_resbody_str
 )
 
 # 하드코딩된 xlsx 파일 경로
@@ -55,40 +70,51 @@ def handle_load_file():
 # Filtering and result output
 # Modify apply_filter to use selected_service_category from config
 def apply_filter():
-    filter_date = date_entry.get()
-    # filter_reqbody = reqbody_entry.get()
-    # filter_resbody = resbody_entry.get()
+    filter_start_date = start_date_var.get()
+    filter_end_date = end_date_var.get()
+    filter_reqbody = reqbody_entry.get()
+    filter_resbody = resbody_entry.get()
 
     # Get the selected URL option index
     selected_index = url_var.get()
 
     # Use selected_service_category from config
     try:
-        set_filtered_data(get_original_data())
-
-        # Common filtering logic for datetime, reqbody, and resbody
-        # filtered_data = data[
-        #     data['reqbody'].str.contains(filter_reqbody, na=False) &
-        #     data['resbody'].str.contains(filter_resbody, na=False, regex=True)
-        # ]
+        set_filtered_data(pd.DataFrame(get_original_data()))
         init_filtered_data()
-        set_filtered_data_by_date(filter_date)
 
-        # Filter data based on selected_service_category and parse_option
-        # def filter_by_service_category(row):
-        #     option_data = row['reqbody'][:14]  # Assuming the first 14 characters are the option data
-        #     parsed_option = parse_option(option_data)
-        #     return parsed_option.get("Service Type") == SERVICE_TYPE_TABLE.get(str(selected_service_category), "Unknown")
+        # Apply date range filtering if both start and end dates are provided
+        if filter_start_date or filter_end_date:
+            set_filtered_data_by_date(filter_start_date, filter_end_date)
 
-        # filtered_data = filtered_data[filtered_data.apply(filter_by_service_category, axis=1)]
+        set_filtered_data_by_reqbody_str(filter_reqbody)
+        set_filtered_data_by_resbody_str(filter_resbody)
+
+        # Call populate_date_dropdowns after filtering
+        populate_date_dropdowns()
 
         # Call specific filtering logic based on the selected index
         if selected_index == 0:  # Service Flag Checker
-            return process_service_flags(get_filtered_data(), service_flag_checkbox_vars, service_flag_checkbox_labels)
+            selected_checkboxes = [
+                label for var, label in zip(service_flag_checkbox_vars, CHECKBOX_LABELS) if var.get()
+            ] or CHECKBOX_LABELS
+            set_filtered_data_by_urls([SERVICE_FLAG_URL, RSCDLCHK_URL])
+            set_selected_service_flags(selected_checkboxes)
+            return process_service_flags()
 
         elif selected_index == 1:  # Remote Control Checker
-            # Pass the selected Service Category to process_remote_control
-            return process_remote_control(get_filtered_data(), remote_checkbox_vars, remote_checkbox_labels)
+            selected_urls = [
+                url for var, label, url in zip(remote_checkbox_vars, remote_checkbox_labels,
+                [REMOTE_CONTROL_CMD_URL, REMOTE_CONTROL_RESP_URL]) if var.get()
+            ] or [REMOTE_CONTROL_CMD_URL, REMOTE_CONTROL_RESP_URL]
+            set_filtered_data_by_urls(selected_urls)
+
+            # Get the selected service category from the dropdown
+            selected_service_category = service_category_var.get().split(")")[0].strip("(")
+            set_selected_service_category(selected_service_category)
+
+            # Call process_remote_control
+            return process_remote_control()
 
         else:
             messagebox.showinfo("Info", "No specific checker selected.")
@@ -98,16 +124,16 @@ def apply_filter():
         messagebox.showerror("Error", f"Error occurred during filtering: {e}")
         return None
 
-# Update parse_resbody_to_table to populate the Treeview
-def parse_resbody_to_table():
+# Update show_result to populate the Treeview
+def show_result():
+    # Clear previous results in the Treeview
+    for item in json_tree.get_children():
+        json_tree.delete(item)
+
     result_df = apply_filter()  # Apply filter and get the result DataFrame
     if result_df is None or result_df.empty:
         messagebox.showwarning("Warning", "No data found after filtering.")
         return
-
-    # Clear previous results in the Treeview
-    for item in json_tree.get_children():
-        json_tree.delete(item)
 
     # Convert DataFrame to JSON format without NaN values
     try:
@@ -162,7 +188,7 @@ result_button_frame = tk.Frame(top_frame)
 result_button_frame.pack(pady=5, fill="x", anchor="w")  # Place it below the csv_frame
 
 # Result output button
-parse_button = tk.Button(result_button_frame, text="Show Results", command=parse_resbody_to_table)
+parse_button = tk.Button(result_button_frame, text="Show Results", command=show_result)
 parse_button.pack(side="left", padx=5, anchor="w")  # Left-align the button
 
 # Add a toggle button to control the open/close state of the JSON tree
@@ -210,9 +236,29 @@ left_frame = tk.Frame(main_frame)
 left_frame.pack(side="left", padx=10, anchor="nw")  # Anchor to top-left
 
 # Filter input fields
-tk.Label(left_frame, text="Date Filter (datetime):", font=("Arial", 10), anchor="w").pack(side="top", anchor="w")
-date_entry = tk.Entry(left_frame)
-date_entry.pack(pady=5, side="top", anchor="w")
+# Add start_date and end_date entries for date range filtering
+# Add a dropdown for Start Date
+tk.Label(left_frame, text="Start Date (datetime):", font=("Arial", 10), anchor="w").pack(side="top", anchor="w")
+start_date_var = tk.StringVar(value=None)
+start_date_dropdown = ttk.Combobox(left_frame, textvariable=start_date_var, state="readonly")
+start_date_dropdown.pack(pady=5, side="top", anchor="w")
+
+# Add a dropdown for End Date
+tk.Label(left_frame, text="End Date (datetime):", font=("Arial", 10), anchor="w").pack(side="top", anchor="w")
+end_date_var = tk.StringVar(value=None)
+end_date_dropdown = ttk.Combobox(left_frame, textvariable=end_date_var, state="readonly")
+end_date_dropdown.pack(pady=5, side="top", anchor="w")
+
+# Function to populate the dropdowns with unique datetime values from get_filtered_data()
+def populate_date_dropdowns():
+    try:
+        data = get_filtered_data()
+        if data is not None and not data.empty:
+            unique_dates = sorted(data['datetime'].dropna().unique())
+            start_date_dropdown['values'] = unique_dates
+            end_date_dropdown['values'] = unique_dates
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to populate date dropdowns: {e}")
 
 url_options = [
     "Service Flag",
@@ -242,18 +288,38 @@ resbody_entry.pack(pady=5, side="top", anchor="w")
 resbody_label.pack_forget()  # Hidden by default
 resbody_entry.pack_forget()  # Hidden by default
 
-# Create checkboxes for Service Flag options
-service_flag_checkbox_vars, service_flag_checkbox_labels, service_flag_checkbox_frame, service_flag_checkboxes = create_service_flag_checkboxes(left_frame)
-service_flag_checkbox_frame.pack(pady=5, side="top", anchor="w")
-service_flag_checkbox_frame.pack_forget()  # Hidden by default
-
 # Add a label for Service Flag checkboxes
 service_flag_label = tk.Label(left_frame, text="Options:", anchor="w", font=("Arial", 10))
+
+# Create a frame for Service Flag checkboxes
+service_flag_checkbox_frame = tk.Frame(left_frame)
+service_flag_checkbox_vars = []
+service_flag_checkboxes = []
+
+for label in CHECKBOX_LABELS:
+    var = tk.BooleanVar(value=(label in ["Telematics"]))  # Default check for Telematics and RSFlag
+    service_flag_checkbox_vars.append(var)
+    cb = tk.Checkbutton(service_flag_checkbox_frame, text=label, variable=var)
+    service_flag_checkboxes.append(cb)
+
+# Pack the frame and label, but hide them by default
+service_flag_checkbox_frame.pack(pady=5, side="top", anchor="w")
+service_flag_checkbox_frame.pack_forget()  # Hidden by default
 service_flag_label.pack(side="top", anchor="w")
 service_flag_label.pack_forget()  # Hidden by default
 
 # Create checkboxes for Remote Control options
-remote_checkbox_vars, remote_checkbox_labels, remote_checkboxes = create_remote_control_checkboxes(left_frame)
+remote_checkbox_vars = []
+remote_checkbox_labels = ["rmtctrlcmd", "resrmtctrl"]
+remote_checkboxes = []
+
+for label in remote_checkbox_labels:
+    var = tk.BooleanVar(value=False)
+    remote_checkbox_vars.append(var)
+    checkbox = tk.Checkbutton(left_frame, text=label, variable=var)
+    remote_checkboxes.append(checkbox)
+    checkbox.pack(anchor="w")
+
 remote_control_label = tk.Label(left_frame, text="Options:", anchor="w", font=("Arial", 10))
 remote_control_label.pack(side="top", anchor="w")
 remote_control_label.pack_forget()  # Initially hidden

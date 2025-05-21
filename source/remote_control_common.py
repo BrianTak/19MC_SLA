@@ -41,27 +41,17 @@ def parse_time_information(data):
     except Exception as e:
         return {"Error": f"Time Information parsing error: {e}"}
 
-def merge_result_code_tables(service_type_byte):
+def merge_tables(service_type_byte, given_table):
     service_type_description = SERVICE_TYPE_TABLE.get(service_type_byte, "")
     if "air con" in service_type_description.lower():
         service_type_byte = "37"
 
-    return {**RESULT_CODE_TABLE.get("00", {}), **RESULT_CODE_TABLE.get(service_type_byte, {})}
+    return {**given_table.get("00", {}), **given_table.get(service_type_byte, {})}
 
 def parse_option(option_data):
     # Parse fields for each option
     service_type_byte = option_data[0:2]  # 1 byte (2 hex characters)
     service_type = SERVICE_TYPE_TABLE.get(service_type_byte, "Unknown")
-
-    if get_selected_service_category() == "00":
-        print("Log: get_selected_service_category is 00")
-    elif service_type_byte != get_selected_service_category():
-        print(f"Log: Filtering out service category. service_type_byte: {service_type_byte}, selected_category: {get_selected_service_category()}")
-        return {"Filtered": "service category"}
-
-    if get_selected_service_category() != "00":
-        if get_selected_service_category() != service_type_byte:
-            return {"Filtered": "service category"}
 
     command_byte = option_data[2:4]  # 1 byte (2 hex characters)
 
@@ -84,8 +74,8 @@ def parse_option(option_data):
     parameter_2_byte = option_data[8:10]  # 1 byte (2 hex characters)
 
     if command_type == "End Response":
-        param1 = f"Result Code: {int(parameter_1_byte, 16):02X} ({merge_result_code_tables(service_type_byte, RESULT_CODE_TABLE).get(int(parameter_1_byte, 16), 'N/A')})"
-        param2 = f"Stop Cause: {int(parameter_2_byte, 16):02X} ({merge_result_code_tables(service_type_byte, STOP_CAUSE_TABLE).get(int(parameter_2_byte, 16), 'N/A')})"
+        param1 = f"Result Code: {int(parameter_1_byte, 16):02X} ({merge_tables(service_type_byte, RESULT_CODE_TABLE).get(int(parameter_1_byte, 16), 'N/A')})"
+        param2 = f"Stop Cause: {int(parameter_2_byte, 16):02X} ({merge_tables(service_type_byte, STOP_CAUSE_TABLE).get(int(parameter_2_byte, 16), 'N/A')})"
     else:
         param1 = REQUEST_PARAM_1_TABLE.get(service_type_byte, lambda _: "Unknown")(parameter_1_byte)
         param2 = REQUEST_PARAM_2_TABLE.get(service_type_byte, lambda _: "Unknown")(parameter_2_byte)
@@ -95,7 +85,7 @@ def parse_option(option_data):
 
     # Interpret based on command type
     return {
-        "Service Type": f"({service_type_byte}): {service_type}",
+        "Service Type": f"{service_type_byte}: {service_type}",
         "Req/Res": req_res,
         "Command Type": command_type,
         "Command Contents": command_content,
