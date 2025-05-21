@@ -69,9 +69,6 @@ def process_remote_control(filtered_data, checkbox_vars, checkbox_labels):
     if selected_urls:
         filtered_data = filtered_data[filtered_data['url'].isin(selected_urls)]
 
-    # Ensure column names are standardized
-    filtered_data.columns = filtered_data.columns.str.strip().str.lower()
-    filtered_data['url'] = filtered_data['url'].str.strip().str.lower()
 
     result = []
     print("Starting remote control check.")

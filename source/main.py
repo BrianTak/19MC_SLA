@@ -10,15 +10,17 @@ from remote_control_tracker import process_remote_control, create_remote_control
 from tkinter import ttk  # Import ttk for Treeview
 from remote_control_map import SERVICE_TYPE_TABLE
 from remote_control_common import parse_option
-from config import get_selected_pf, set_selected_pf, get_selected_service_category, set_selected_service_category
+from config import (
+    get_selected_pf, set_selected_pf,
+    get_selected_service_category, set_selected_service_category,
+    get_original_data, set_original_data,
+    get_filtered_data, set_filtered_data, clear_filtered_data,
+    init_filtered_data, set_filtered_data_by_date
+)
 
 # 하드코딩된 xlsx 파일 경로
 HARDCODED_XLSX_PATH = "sample/5YFB4MDE1RP156769_0115-0315.xlsx"
 USE_HARDCODED_XLSX = True  # Flag to toggle between hardcoded xlsx and file dialog
-
-# 전역 변수 선언
-data = None  # 원본 데이터
-filtered_data = None  # 필터링된 데이터
 
 # Disable buttons initially
 def disable_buttons():
@@ -31,53 +33,46 @@ def enable_buttons():
 
 # 파일 로드 핸들러 함수
 def handle_load_file():
-    global data
     try:
         if USE_HARDCODED_XLSX:
             # Load the hardcoded xlsx file
-            data = pd.read_excel(HARDCODED_XLSX_PATH)
+            set_original_data(pd.read_excel(HARDCODED_XLSX_PATH))
             file_name = os.path.basename(HARDCODED_XLSX_PATH)
         else:
             # Use file dialog to select a file
             file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
             if not file_path:
                 return  # User canceled the file dialog
-            data = pd.read_excel(file_path)
+            set_original_data(pd.read_excel(file_path))
             file_name = os.path.basename(file_path)
 
-        if data is not None:
-            # Standardize column names
-            data.columns = data.columns.str.strip().str.lower()
+        if get_original_data() is not None:
             csv_path_label.config(text=f"Loaded file: {file_name}")
             enable_buttons()  # Enable buttons after successful file load
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load file: {e}")
 
-# Function to sort DataFrame by datetime column
-def sort_by_datetime(dataframe):
-    dataframe = dataframe.sort_values(by='datetime', ascending=True)  # Sort in ascending order
-    return dataframe
-
 # Filtering and result output
 # Modify apply_filter to use selected_service_category from config
 def apply_filter():
     filter_date = date_entry.get()
-    filter_reqbody = reqbody_entry.get()
-    filter_resbody = resbody_entry.get()
+    # filter_reqbody = reqbody_entry.get()
+    # filter_resbody = resbody_entry.get()
 
     # Get the selected URL option index
     selected_index = url_var.get()
 
     # Use selected_service_category from config
     try:
+        set_filtered_data(get_original_data())
+
         # Common filtering logic for datetime, reqbody, and resbody
-        filtered_data = data[
-            data['datetime'].astype(str).str.contains(filter_date, na=False) &
-            data['reqbody'].str.contains(filter_reqbody, na=False) &
-            data['resbody'].str.contains(filter_resbody, na=False, regex=True)
-        ]
-        filtered_data.columns = filtered_data.columns.str.strip().str.lower()
-        filtered_data = sort_by_datetime(filtered_data)
+        # filtered_data = data[
+        #     data['reqbody'].str.contains(filter_reqbody, na=False) &
+        #     data['resbody'].str.contains(filter_resbody, na=False, regex=True)
+        # ]
+        init_filtered_data()
+        set_filtered_data_by_date(filter_date)
 
         # Filter data based on selected_service_category and parse_option
         # def filter_by_service_category(row):
@@ -89,11 +84,11 @@ def apply_filter():
 
         # Call specific filtering logic based on the selected index
         if selected_index == 0:  # Service Flag Checker
-            return process_service_flags(filtered_data, service_flag_checkbox_vars, service_flag_checkbox_labels)
+            return process_service_flags(get_filtered_data(), service_flag_checkbox_vars, service_flag_checkbox_labels)
 
         elif selected_index == 1:  # Remote Control Checker
             # Pass the selected Service Category to process_remote_control
-            return process_remote_control(filtered_data, remote_checkbox_vars, remote_checkbox_labels)
+            return process_remote_control(get_filtered_data(), remote_checkbox_vars, remote_checkbox_labels)
 
         else:
             messagebox.showinfo("Info", "No specific checker selected.")
