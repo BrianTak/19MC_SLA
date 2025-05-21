@@ -1,10 +1,5 @@
 import pandas as pd
 
-from config import (
-    REMOTE_CONTROL_CMD_URL,
-    REMOTE_CONTROL_RESP_URL
-)
-
 original_data = None
 filtered_data = None
 

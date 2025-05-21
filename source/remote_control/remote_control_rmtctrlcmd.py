@@ -1,4 +1,4 @@
-from remote_control_common import (
+from remote_control.remote_control_common import (
     parse_time_information,
     parse_option
 )

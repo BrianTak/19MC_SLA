@@ -4,13 +4,13 @@ from tkinter import filedialog, messagebox, StringVar
 import xml.etree.ElementTree as ET
 import os  # Add this import at the top of the file
 import numpy as np  # Import numpy as np
-from file_loader import load_file  # Import only load_file
-from service_flag_tracker import process_service_flags  # Updated function name
-from remote_control_tracker import process_remote_control  # Updated import statement
+from util.file_loader import load_file  # Import only load_file
+from service_flag.service_flag_tracker import process_service_flags  # Updated function name
+from remote_control.remote_control_tracker import process_remote_control  # Updated import statement
 from tkinter import ttk  # Import ttk for Treeview
-from remote_control_map import SERVICE_TYPE_TABLE
-from remote_control_common import parse_option
-from config import (
+from remote_control.remote_control_map import SERVICE_TYPE_TABLE
+from remote_control.remote_control_common import parse_option
+from util.config import (
     SERVICE_FLAG_URL,
     RSCDLCHK_URL,
     REMOTE_CONTROL_CMD_URL,
@@ -21,7 +21,7 @@ from config import (
     set_selected_service_category,
     set_selected_service_flags,
 )
-from database import (
+from util.database import (
     get_original_data,
     set_original_data,
     get_filtered_data,
@@ -68,7 +68,7 @@ def handle_load_file():
         messagebox.showerror("Error", f"Failed to load file: {e}")
 
 # Filtering and result output
-# Modify apply_filter to use selected_service_category from config
+# Modify apply_filter to use selected_service_category from util.config
 def apply_filter():
     filter_start_date = start_date_var.get()
     filter_end_date = end_date_var.get()
@@ -78,7 +78,7 @@ def apply_filter():
     # Get the selected URL option index
     selected_index = url_var.get()
 
-    # Use selected_service_category from config
+    # Use selected_service_category from util.config
     try:
         set_filtered_data(pd.DataFrame(get_original_data()))
         init_filtered_data()

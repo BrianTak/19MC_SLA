@@ -1,4 +1,4 @@
-from config import get_selected_pf  # Import selected_pf from config
+from util.config import get_selected_pf  # Import selected_pf from util.config
 
 SERVICE_TYPE_TABLE_19PF = {
     "00": "N/A",

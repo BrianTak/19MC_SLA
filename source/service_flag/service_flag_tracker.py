@@ -1,12 +1,11 @@
 # Renamed to `service_flag_tracker.py` for clarity
 import xml.etree.ElementTree as ET
 import pandas as pd
-import tkinter as tk
 
-from config import (
+from util.config import (
     get_selected_service_flags
 )
-from database import (
+from util.database import (
     get_filtered_data
 )
 

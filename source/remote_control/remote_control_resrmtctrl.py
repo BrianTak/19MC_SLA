@@ -1,11 +1,11 @@
-from config import get_selected_pf  # Import selected_pf from config
+from util.config import get_selected_pf  # Import selected_pf from util.config
 
-from remote_control_common import (
+from remote_control.remote_control_common import (
     parse_time_information,
     parse_option
 )
 
-from remote_control_map import (
+from remote_control.remote_control_map import (
     PRE_OPERATION_VEHICLE_TABLE,
     VEHICLE_STATE_WHEN_REMOTE_AC,
     CANCEL_PERMISSION_STATES

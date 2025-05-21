@@ -1,6 +1,4 @@
-from config import get_selected_service_category
-
-from remote_control_map import (
+from remote_control.remote_control_map import (
     SERVICE_TYPE_TABLE,
     COMMAND_TYPE_TABLE,
     COMMAND_CONTENT_TABLE,
