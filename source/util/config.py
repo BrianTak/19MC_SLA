@@ -6,7 +6,11 @@ REMOTE_CONTROL_CMD_URL = "http://dcmservice-remocon-service.local/remoteservices
 REMOTE_CONTROL_RESP_URL = "http://dcmservice-remocon-service.local/mc/remoteservices/resrmtctrl/"
 
 # Checkbox Labels
-CHECKBOX_LABELS = ["Telematics", "RSFlag", "RmtCtrl", "SVT", "VPPlus", "VP", "Alarm", "RmtImmobi", "RmtConf", "Dormant"]
+PLATFORM_LABELS = ["15PF", "19PF", "19PFv2"]
+URL_LABELS = ["Service Flag", "Remote Control"]
+SERVICE_FLAG_LABELS = ["Telematics", "RSFlag", "RmtCtrl", "SVT", "VPPlus", "VP", "Alarm", "RmtImmobi", "RmtConf", "Dormant"]
+REMOTE_CONTROL_LABELS = ["rmtctrlcmd", "resrmtctrl"]
+
 
 global selected_pf
 
