@@ -48,16 +48,5 @@ def process_service_flags():
                 'Result': str(e)
             })
 
-    # Convert to DataFrame and group by date
-    result_df = pd.DataFrame(result)
-    if not result_df.empty:
-        grouped = result_df.groupby('Datetime').agg({
-            'URL': 'first',  # Keep the first URL for simplicity
-            'Source': 'first',  # Keep the first source for simplicity
-            'Result': lambda x: {k: v for d in x for k, v in d.items() if isinstance(d, dict)},
-        }).reset_index()
-
-        return grouped
-
-    return pd.DataFrame()
+    return pd.DataFrame(result)
 

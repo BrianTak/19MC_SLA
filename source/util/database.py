@@ -37,24 +37,12 @@ def init_filtered_data():
     else:
         raise ValueError("filtered_data must be a pandas DataFrame")
 
-# Update set_filtered_data_by_date to ensure filtered_data remains a DataFrame
-def set_filtered_data_by_date(start_date=None, end_date=None):
-    global filtered_data
-    if isinstance(filtered_data, pd.DataFrame):
-        if start_date and end_date:
-            filtered_data = filtered_data[(filtered_data['datetime'] >= start_date) & (filtered_data['datetime'] <= end_date)]
-        elif start_date:
-            filtered_data = filtered_data[filtered_data['datetime'] >= start_date]
-        elif end_date:
-            filtered_data = filtered_data[filtered_data['datetime'] <= end_date]
-    else:
-        raise ValueError("filtered_data must be a pandas DataFrame")
-
 # Update set_filtered_data_by_urls to ensure filtered_data remains a DataFrame
 def set_filtered_data_by_urls(value):
     global filtered_data
     if isinstance(filtered_data, pd.DataFrame):
         filtered_data = filtered_data[filtered_data['url'].isin(value)]
+        filtered_data.columns = filtered_data.columns.str.strip().str.lower()
     else:
         raise ValueError("filtered_data must be a pandas DataFrame")
 
@@ -81,3 +69,33 @@ def set_filtered_data_by_service_flag(flag):
         filtered_data = filtered_data[filtered_data['service_flag'] == flag]
     else:
         raise ValueError("filtered_data must be a pandas DataFrame")
+
+
+global filtered_json
+
+def get_filtered_json():
+    global filtered_json
+    return filtered_json
+
+# Update set_filtered_data_by_date to ensure filtered_data remains a DataFrame
+def set_filtered_json_by_date(start_date=None, end_date=None):
+    global filtered_json
+    global filtered_data
+
+    filtered_json = filtered_data.copy()
+    filtered_json.columns = filtered_json.columns.str.strip().str.lower()  # Strip whitespace from column names
+
+    if (start_date and end_date) and start_date >= end_date:
+        raise ValueError("start_date must be less than end_date")
+
+    if isinstance(filtered_json, pd.DataFrame):
+        if start_date and end_date:
+            filtered_json = filtered_json[(filtered_json['datetime'] >= start_date) & (filtered_json['datetime'] <= end_date)]
+        elif start_date:
+            filtered_json = filtered_json[filtered_json['datetime'] >= start_date]
+        elif end_date:
+            filtered_json = filtered_json[filtered_json['datetime'] <= end_date]
+    else:
+        raise ValueError("filtered_data must be a pandas DataFrame")
+
+    return filtered_json

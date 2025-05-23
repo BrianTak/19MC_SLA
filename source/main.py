@@ -27,10 +27,11 @@ from util.database import (
     get_filtered_data,
     set_filtered_data,
     init_filtered_data,
-    set_filtered_data_by_date,
     set_filtered_data_by_urls,
     set_filtered_data_by_reqbody_str,
-    set_filtered_data_by_resbody_str
+    set_filtered_data_by_resbody_str,
+    get_filtered_json,
+    set_filtered_json_by_date,
 )
 
 # 하드코딩된 xlsx 파일 경로
@@ -67,11 +68,7 @@ def handle_load_file():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load file: {e}")
 
-# Filtering and result output
-# Modify apply_filter to use selected_service_category from util.config
-def apply_filter():
-    filter_start_date = start_date_var.get()
-    filter_end_date = end_date_var.get()
+def apply_filter_on_data():
     filter_reqbody = reqbody_entry.get()
     filter_resbody = resbody_entry.get()
 
@@ -83,15 +80,8 @@ def apply_filter():
         set_filtered_data(pd.DataFrame(get_original_data()))
         init_filtered_data()
 
-        # Apply date range filtering if both start and end dates are provided
-        if filter_start_date or filter_end_date:
-            set_filtered_data_by_date(filter_start_date, filter_end_date)
-
         set_filtered_data_by_reqbody_str(filter_reqbody)
         set_filtered_data_by_resbody_str(filter_resbody)
-
-        # Call populate_date_dropdowns after filtering
-        populate_date_dropdowns()
 
         # Call specific filtering logic based on the selected index
         if selected_index == 0:  # Service Flag Checker
@@ -100,7 +90,9 @@ def apply_filter():
             ] or CHECKBOX_LABELS
             set_filtered_data_by_urls([SERVICE_FLAG_URL, RSCDLCHK_URL])
             set_selected_service_flags(selected_checkboxes)
-            return process_service_flags()
+
+            set_filtered_data(process_service_flags())
+            return get_filtered_data()
 
         elif selected_index == 1:  # Remote Control Checker
             selected_urls = [
@@ -113,8 +105,8 @@ def apply_filter():
             selected_service_category = service_category_var.get().split(")")[0].strip("(")
             set_selected_service_category(selected_service_category)
 
-            # Call process_remote_control
-            return process_remote_control()
+            set_filtered_data(process_remote_control())
+            return get_filtered_data()
 
         else:
             messagebox.showinfo("Info", "No specific checker selected.")
@@ -124,20 +116,40 @@ def apply_filter():
         messagebox.showerror("Error", f"Error occurred during filtering: {e}")
         return None
 
+def apply_filter_on_json():
+    # Call populate_date_dropdowns after filtering
+    populate_date_dropdowns()
+
+    filter_start_date = start_date_var.get()
+    filter_end_date = end_date_var.get()
+
+    try:
+        set_filtered_json_by_date(filter_start_date, filter_end_date)
+    except Exception as e:
+        messagebox.showerror("Error", f"Error occurred while applying date filter: {e}")
+
+    return get_filtered_json()
+
 # Update show_result to populate the Treeview
 def show_result():
     # Clear previous results in the Treeview
     for item in json_tree.get_children():
         json_tree.delete(item)
 
-    result_df = apply_filter()  # Apply filter and get the result DataFrame
-    if result_df is None or result_df.empty:
-        messagebox.showwarning("Warning", "No data found after filtering.")
+    result_data = apply_filter_on_data()
+    if result_data is None or result_data.empty:
+        messagebox.showwarning("Warning", "No database found after filtering.")
+        return
+
+    result_json = apply_filter_on_json()
+    # Check if the DataFrame is empty after filtering
+    if result_json.empty or not result_json.values.tolist():
+        messagebox.showwarning("Warning", "No json found after filtering.")
         return
 
     # Convert DataFrame to JSON format without NaN values
     try:
-        result_json = result_df.to_dict(orient="records")
+        result = result_json.to_dict(orient="records")
 
         # Recursive function to insert JSON data into the Treeview
         def insert_json(parent, key, value):
@@ -153,7 +165,7 @@ def show_result():
                 json_tree.insert(parent, "end", text=key, values=(value,))
 
         # Insert the JSON data into the Treeview
-        insert_json("", "Result", result_json)
+        insert_json("", "Result", result)
     except Exception as e:
         messagebox.showerror("Error", f"Error occurred during JSON conversion: {e}")
 
@@ -251,14 +263,15 @@ end_date_dropdown.pack(pady=5, side="top", anchor="w")
 
 # Function to populate the dropdowns with unique datetime values from get_filtered_data()
 def populate_date_dropdowns():
-    try:
-        data = get_filtered_data()
-        if data is not None and not data.empty:
-            unique_dates = sorted(data['datetime'].dropna().unique())
-            start_date_dropdown['values'] = unique_dates
-            end_date_dropdown['values'] = unique_dates
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to populate date dropdowns: {e}")
+    data = pd.DataFrame(get_filtered_data())
+    # Ensure the 'datetime' column exists in the data
+    data.columns = data.columns.str.strip().str.lower()  # Strip whitespace from column names
+    if "datetime" in data.columns:
+        unique_dates = sorted(data["datetime"].dropna().unique())
+        start_date_dropdown["values"] = unique_dates
+        end_date_dropdown["values"] = unique_dates
+    else:
+        messagebox.showwarning("Warning", "'datetime' column not found in the data.")
 
 url_options = [
     "Service Flag",
